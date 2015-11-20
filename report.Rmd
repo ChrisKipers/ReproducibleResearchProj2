@@ -1,0 +1,95 @@
+---
+title: "Deaths and Property Damage Due to Storm Events"
+output: html_document
+---
+
+## Synopsis
+Storms are dangerous events that can cause deaths and property damage. This
+document examines the top five lethal and damaging storm events since 2000.
+
+## Data Processing
+The three R libraries used for this report are lubridate, dplyr and chorolplethr.
+```{r message=FALSE}
+  library(lubridate)
+  library(dplyr)
+  library(choroplethr)
+```
+The first step in data processing is to download the data and load it into a
+data frame.
+```{r cache=TRUE}
+  event.data.url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+  temp = tempfile()
+  download.file(event.data.url, temp, method = "curl")
+  
+  event.data <- read.csv(temp)
+  unlink(temp)
+```
+The downloaded data contains storm events since 1950, however for this report
+we are only analyzing events since 2000.
+```{r}
+  events.since.2000 <- event.data %>%
+    filter(STATE %in% state.abb) %>%
+    mutate(date = mdy_hms(BGN_DATE)) %>%
+    filter(date > mdy("1/1/2000"))
+```
+
+We then summarize fatalities and property damage by event type.
+```{r}
+  deaths.by.event.type <- events.since.2000 %>%
+    group_by(EVTYPE) %>%
+    summarize(FATALITIES = sum(FATALITIES)) %>%
+    arrange(desc(FATALITIES))
+  
+  exp.to.multiplier = c(1000, 1000000, 1000000000)
+  names(exp.to.multiplier) <- c('K', 'M', 'B')
+  
+  property.damage.by.event.type <- events.since.2000 %>%
+    group_by(EVTYPE) %>%
+    mutate(PROPDMGEXP.AS.CHAR = as.character(PROPDMGEXP),
+           PROPDMGMULTIPLIER = ifelse(
+             is.na(exp.to.multiplier[PROPDMGEXP.AS.CHAR]),
+             1 ,
+             exp.to.multiplier[PROPDMGEXP.AS.CHAR]),
+           TRUEPROPDMG = PROPDMG * PROPDMGMULTIPLIER) %>%
+    summarize(PROPDMG = sum(TRUEPROPDMG)) %>%
+    arrange(desc(PROPDMG))
+```
+
+We also calculate the total fatalities by state.
+```{r}
+  deaths.by.state <- events.since.2000 %>%
+    group_by(STATE) %>%
+    summarize(FATALITIES = sum(FATALITIES))
+```
+## Results
+As you can see in the first figure the five most deadly storm events are .
+
+```{r}
+  top.5.deaths.by.event.type = head(deaths.by.event.type, 5)
+  pie(
+    top.5.deaths.by.event.type$FATALITIES,
+    top.5.deaths.by.event.type$EVTYPE,
+    main = "Top 5 Total Fatalities by Event Type",
+    xlab = paste("Total deaths:", sum(top.5.deaths.by.event.type$FATALITIES)))
+```
+
+It is also interesting to look at the total deaths by state
+```{r warning=FALSE}
+  names.of.states <- tolower(state.name[match(deaths.by.state$STATE, state.abb)])
+  state_choropleth(
+    data_frame(region = names.of.states, value = deaths.by.state$FATALITIES),
+    num_colors = 1)
+```
+
+The next figure shows a breakdown of the top five most property damaging storm
+events
+```{r}
+  top.5.prop.damage.by.event.type <- head(property.damage.by.event.type, 5)
+  total.dmg.for.top5 <- sum(top.5.prop.damage.by.event.type$PROPDMG)
+  prop.dmg.as.currency <- paste("$",format(total.dmg.for.top5, big.mark=","),sep="")
+  pie(
+    top.5.prop.damage.by.event.type$PROPDMG,
+    top.5.prop.damage.by.event.type$EVTYPE,
+    main = "Top 5 Total Property Damage by Event Type",
+    xlab = paste("Total property damage for top 5 property damage events:", prop.dmg.as.currency))
+```
