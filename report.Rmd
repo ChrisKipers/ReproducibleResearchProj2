@@ -18,7 +18,7 @@ The first step in data processing is to download the data and load it into a
 data frame.
 ```{r cache=TRUE}
   event.data.url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
-  temp = tempfile()
+  temp <- tempfile()
   download.file(event.data.url, temp, method = "curl")
   
   event.data <- read.csv(temp)
@@ -65,7 +65,7 @@ We also calculate the total fatalities by state.
 As you can see in the first figure the five most deadly storm events are .
 
 ```{r}
-  top.5.deaths.by.event.type = head(deaths.by.event.type, 5)
+  top.5.deaths.by.event.type <- head(deaths.by.event.type, 5)
   pie(
     top.5.deaths.by.event.type$FATALITIES,
     top.5.deaths.by.event.type$EVTYPE,
